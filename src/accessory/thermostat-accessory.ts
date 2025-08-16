@@ -35,19 +35,22 @@ export default class ThermostatAccessory extends BaseAccessory {
   isExternalAccessory = false;
   isPowerSupported = true;
 
+  // NEW: capability flags
+  private isAirConditioner = false;
+  private supportsHeat = true;
+  private supportsCool = true;
+
   configureServices() {
+    // Determine AC/thermostat behavior and supported modes before wiring characteristics
+    this.detectSupportedModes();
+    this.isAirConditioner = this.inferIsAirConditioner();
+
     this.service =
       this.platformAcc.getService(this.Service.Thermostat) ||
       this.platformAcc.addService(
         this.Service.Thermostat,
         this.device.displayName,
       );
-
-    // this.service
-    //   .getCharacteristic(
-    //     this.platform.Characteristic.CurrentHeatingCoolingState,
-    //   )
-    //   .onGet(this.handleCurrentStateGet.bind(this));
 
     this.service
       .getCharacteristic(this.Characteristic.CurrentTemperature)
@@ -65,20 +68,46 @@ export default class ThermostatAccessory extends BaseAccessory {
       .onGet(this.handleTargetStateGet.bind(this))
       .onSet(this.handleTargetStateSet.bind(this));
 
+    // Limit valid TargetHeatingCoolingState values to what the device actually supports
+    this.constrainTargetStateProps();
+
     this.service
       .getCharacteristic(this.Characteristic.TargetTemperature)
       .onGet(this.handleTargetTempGet.bind(this))
       .onSet(this.handleTargetTempSet.bind(this));
 
-    this.service
-      .getCharacteristic(this.Characteristic.CoolingThresholdTemperature)
-      .onGet(this.handleCoolTempGet.bind(this))
-      .onSet(this.handleCoolTempSet.bind(this));
+    // Only expose Cooling/Heating thresholds that are supported
+    if (this.supportsCool) {
+      this.service
+        .getCharacteristic(this.Characteristic.CoolingThresholdTemperature)
+        .onGet(this.handleCoolTempGet.bind(this))
+        .onSet(this.handleCoolTempSet.bind(this));
+    } else {
+      // If it exists due to prior cache, remove it safely
+      try {
+        if (this.service.testCharacteristic(this.Characteristic.CoolingThresholdTemperature)) {
+          const ch = this.service.getCharacteristic(this.Characteristic.CoolingThresholdTemperature);
+          // @ts-ignore homebridge types allow this at runtime
+          this.service.removeCharacteristic(ch);
+        }
+      } catch {}
+    }
 
-    this.service
-      .getCharacteristic(this.Characteristic.HeatingThresholdTemperature)
-      .onGet(this.handleHeatTempGet.bind(this))
-      .onSet(this.handleHeatTempSet.bind(this));
+    if (this.supportsHeat) {
+      this.service
+        .getCharacteristic(this.Characteristic.HeatingThresholdTemperature)
+        .onGet(this.handleHeatTempGet.bind(this))
+        .onSet(this.handleHeatTempSet.bind(this));
+    } else {
+      // If it exists due to prior cache, remove it safely
+      try {
+        if (this.service.testCharacteristic(this.Characteristic.HeatingThresholdTemperature)) {
+          const ch = this.service.getCharacteristic(this.Characteristic.HeatingThresholdTemperature);
+          // @ts-ignore
+          this.service.removeCharacteristic(ch);
+        }
+      } catch {}
+    }
 
     pipe(
       this.rangeFeatures,
@@ -213,6 +242,13 @@ export default class ThermostatAccessory extends BaseAccessory {
     this.logWithContext('debug', `Triggered set target state: ${value}`);
     if (typeof value !== 'number') {
       throw this.invalidValueError;
+    }
+
+    // Guard: block HEAT if the device is AC-only
+    const C = this.Characteristic.TargetHeatingCoolingState;
+    if (!this.supportsHeat && value === C.HEAT) {
+      this.logWithContext('debug', 'Ignoring HEAT: device is AC-only (no heating support)');
+      return;
     }
 
     let isDeviceOn: boolean;
@@ -365,7 +401,9 @@ export default class ThermostatAccessory extends BaseAccessory {
     if (typeof value !== 'number') {
       throw this.invalidValueError;
     }
-    const units = maybeTemp.value.scale.toUpperCase() as TemperatureScale;
+    const units = (maybeTemp.value.scale.toUpperCase
+      ? maybeTemp.value.scale.toUpperCase()
+      : String(maybeTemp.value.scale).toUpperCase()) as TemperatureScale;
     const newTemp = tempMapper.mapHomeKitTempToAlexa(value, units);
     return pipe(
       this.platform.alexaApi.setDeviceStateGraphQl(
@@ -682,11 +720,58 @@ export default class ThermostatAccessory extends BaseAccessory {
       throw this.invalidValueError;
     }
 
-    const units = coolTemp.scale.toUpperCase() as TemperatureScale;
+    const units = (coolTemp.scale.toUpperCase
+      ? coolTemp.scale.toUpperCase()
+      : String(coolTemp.scale).toUpperCase()) as TemperatureScale;
     return {
       units,
       coolTemp,
       heatTemp,
     };
+  }
+
+  /** NEW: infer whether the device should be treated as an air conditioner */
+  private inferIsAirConditioner(): boolean {
+    const name = String(this.device?.displayName ?? '').toLowerCase();
+    const hasUpper = O.isSome(this.getCacheValue('thermostat', 'upperSetpoint'));
+    const hasLower = O.isSome(this.getCacheValue('thermostat', 'lowerSetpoint'));
+    if (hasUpper && !hasLower) return true;
+    if (name.includes('air conditioner') || name.includes('a/c') || name.includes(' ac')) return true;
+    return false;
+  }
+
+  /** NEW: detect which modes (heat/cool) are supported */
+  private detectSupportedModes(): void {
+    const hasUpper = O.isSome(this.getCacheValue('thermostat', 'upperSetpoint')); // COOL present
+    const hasLower = O.isSome(this.getCacheValue('thermostat', 'lowerSetpoint')); // HEAT present
+
+    // Defaults if we haven't cached anything yet:
+    this.supportsCool = hasUpper || true;   // assume cooling is available (safe for mini-splits)
+    this.supportsHeat = hasLower || false;  // default to no-heat until proven otherwise
+
+    // If name clearly indicates AC and we didn’t see heat, force AC-only
+    if (this.inferIsAirConditioner() && !hasLower) {
+      this.supportsHeat = false;
+      this.supportsCool = true;
+    }
+
+    this.logWithContext(
+      'debug',
+      `Mode support detected: supportsCool=${this.supportsCool}, supportsHeat=${this.supportsHeat}, isAC=${this.isAirConditioner}`
+    );
+  }
+
+  /** NEW: restrict HomeKit TargetHeatingCoolingState to supported values */
+  private constrainTargetStateProps(): void {
+    const C = this.Characteristic.TargetHeatingCoolingState;
+    const valid = this.supportsHeat && this.supportsCool
+      ? [C.OFF, C.HEAT, C.COOL, C.AUTO]
+      : this.supportsCool
+        ? [C.OFF, C.COOL, C.AUTO]
+        : [C.OFF, C.HEAT, C.AUTO];
+
+    this.service
+      .getCharacteristic(C)
+      .setProps({ validValues: valid });
   }
 }
