@@ -140,7 +140,7 @@ const determineSupportedHomeKitAccessories = (
     )
     .when(
       ([type, ops]) =>
-        type === 'THERMOSTAT' &&
+        (type === 'THERMOSTAT' || type === 'APPLICATION') &&
         supportsRequiredActions(ThermostatAccessory.requiredOperations, ops),
       () =>
         E.of([
