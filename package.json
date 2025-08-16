@@ -1,7 +1,7 @@
 {
   "displayName": "Homebridge AC Test",
   "name": "homebridge-ac-test",
-  "version": "1.1.2",
+  "version": "1.2.1",
   "description": "Homebridge plugin that can control smart home devices connected to Alexa.",
   "license": "MIT",
   "author": "Jake Franklin",
@@ -11,7 +11,7 @@
     "url": "git://github.com/jakef14/homebridge-alexa-smarthome.git"
   },
   "bugs": {
-    "url": "https://github.com/hakef14/homebridge-alexa-smarthome/issues"
+    "url": "https://github.com/jakef14/homebridge-alexa-smarthome/issues"
   },
   "funding": {
     "type": "github",
