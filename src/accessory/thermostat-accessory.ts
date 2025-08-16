@@ -4,11 +4,10 @@ import { Option, Some } from 'fp-ts/Option';
 import * as RR from 'fp-ts/ReadonlyRecord';
 import * as TE from 'fp-ts/TaskEither';
 import {
-  constFalse,
   constTrue,
   flow,
   identity,
-  pipe,
+  pipe
 } from 'fp-ts/lib/function';
 import { CharacteristicValue, Service } from 'homebridge';
 import { CapabilityState, SupportedActionsType } from '../domain/alexa';
@@ -645,7 +644,7 @@ export default class ThermostatAccessory extends BaseAccessory {
   private onAutoMode() {
     return pipe(
       this.getCacheValue('thermostat', 'thermostatMode'),
-      O.match(constFalse, (m) => m === 'AUTO'),
+      O.match(constTrue, (m) => m === 'AUTO'),
     );
   }
 
