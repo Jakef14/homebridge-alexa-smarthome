@@ -26,6 +26,7 @@ import {
 import * as mapper from '../mapper/power-mapper';
 import * as tempMapper from '../mapper/temperature-mapper';
 import * as tstatMapper from '../mapper/thermostat-mapper';
+import { InvalidResponse } from '../domain/alexa/errors';
 import * as util from '../util';
 import BaseAccessory from './base-accessory';
 
@@ -152,11 +153,15 @@ export default class ThermostatAccessory extends BaseAccessory {
       ),
     );
 
+    const fallback =
+      (this.getHapValue(this.Characteristic.CurrentTemperature) as number) ?? 0;
     return pipe(
       this.getStateGraphQl(determineCurrentTemp),
       TE.match((e) => {
-        this.logWithContext('errorT', 'Get current temperature', e);
-        throw this.serviceCommunicationError;
+        if (!(e instanceof InvalidResponse)) {
+          this.logWithContext('debug', 'Get current temperature', e);
+        }
+        return fallback;
       }, identity),
     )();
   }
@@ -175,11 +180,17 @@ export default class ThermostatAccessory extends BaseAccessory {
       ),
     );
 
+    const fallback =
+      (this.getHapValue(
+        this.Characteristic.CurrentRelativeHumidity,
+      ) as number) ?? 0;
     return pipe(
       this.getStateGraphQl(determineCurrentRelativeHumidity),
       TE.match((e) => {
-        this.logWithContext('errorT', 'Get current humidity', e);
-        throw this.serviceCommunicationError;
+        if (!(e instanceof InvalidResponse)) {
+          this.logWithContext('debug', 'Get current humidity', e);
+        }
+        return fallback;
       }, identity),
     )();
   }
@@ -379,11 +390,24 @@ export default class ThermostatAccessory extends BaseAccessory {
     if (this.onInvalidOrAutoMode() && O.isSome(targetTempOnAuto)) {
       return targetTempOnAuto.value;
     } else {
+      const fallback = pipe(
+        this.getCacheValue('temperatureSensor'),
+        O.filter(isTemperatureValue),
+        O.flatMap(tempMapper.mapAlexaTempToHomeKit),
+        O.getOrElse(
+          () =>
+            (this.getHapValue(
+              this.Characteristic.TargetTemperature,
+            ) as number) ?? 0,
+        ),
+      );
       return pipe(
         this.getStateGraphQl(determineTargetTemp),
         TE.match((e) => {
-          this.logWithContext('errorT', 'Get target temperature', e);
-          throw this.serviceCommunicationError;
+          if (!(e instanceof InvalidResponse)) {
+            this.logWithContext('debug', 'Get target temperature', e);
+          }
+          return fallback;
         }, identity),
       )();
     }
@@ -459,11 +483,17 @@ export default class ThermostatAccessory extends BaseAccessory {
 
     const autoTemp = this.getAutoTempFromTargetTemp();
     if (this.onAutoMode() || O.isNone(autoTemp)) {
+      const fallback =
+        (this.getHapValue(
+          this.Characteristic.CoolingThresholdTemperature,
+        ) as number) ?? 0;
       return pipe(
         this.getStateGraphQl(determineCoolTemp),
         TE.match((e) => {
-          this.logWithContext('errorT', 'Get cooling temperature', e);
-          throw this.serviceCommunicationError;
+          if (!(e instanceof InvalidResponse)) {
+            this.logWithContext('debug', 'Get cooling temperature', e);
+          }
+          return fallback;
         }, identity),
       )();
     } else {
@@ -545,11 +575,17 @@ export default class ThermostatAccessory extends BaseAccessory {
 
     const autoTemp = this.getAutoTempFromTargetTemp();
     if (this.onAutoMode() || O.isNone(autoTemp)) {
+      const fallback =
+        (this.getHapValue(
+          this.Characteristic.HeatingThresholdTemperature,
+        ) as number) ?? 0;
       return pipe(
         this.getStateGraphQl(determineHeatTemp),
         TE.match((e) => {
-          this.logWithContext('errorT', 'Get heating temperature', e);
-          throw this.serviceCommunicationError;
+          if (!(e instanceof InvalidResponse)) {
+            this.logWithContext('debug', 'Get heating temperature', e);
+          }
+          return fallback;
         }, identity),
       )();
     } else {
@@ -618,11 +654,15 @@ export default class ThermostatAccessory extends BaseAccessory {
       O.map(({ value }) => value === 'ON'),
     );
 
+    const fallback =
+      (this.getHapValue(this.Characteristic.On) as boolean) ?? false;
     return pipe(
       this.getStateGraphQl(determinePowerState),
       TE.match((e) => {
-        this.logWithContext('errorT', 'Get power', e);
-        throw this.serviceCommunicationError;
+        if (!(e instanceof InvalidResponse)) {
+          this.logWithContext('debug', 'Get power', e);
+        }
+        return fallback;
       }, identity),
     )();
   }
