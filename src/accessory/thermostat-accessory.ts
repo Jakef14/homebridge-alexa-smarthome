@@ -62,6 +62,8 @@ export default class ThermostatAccessory extends BaseAccessory {
           this.Characteristic.TargetHeatingCoolingState.OFF,
           this.Characteristic.TargetHeatingCoolingState.HEAT,
           this.Characteristic.TargetHeatingCoolingState.COOL,
+          this.Characteristic.TargetHeatingCoolingState.AUTO,
+
         ],
       })
       .onGet(this.handleTargetStateGet.bind(this))
@@ -377,7 +379,7 @@ export default class ThermostatAccessory extends BaseAccessory {
   }
 
   async handleCoolTempGet(): Promise<number> {
-    const alexaValueName = 'upperSetpoint';
+    const alexaValueName = 'lowerSetpoint';
     const determineCoolTemp = flow(
       A.findFirst<ThermostatState>(
         ({ name, featureName }) =>
@@ -431,11 +433,11 @@ export default class ThermostatAccessory extends BaseAccessory {
         'thermostat',
         'setTargetSetpoint',
         {
-          lowerSetpoint: {
+          upperSetpoint: {
             value: heatTemp.value.toString(10),
             scale: units,
           },
-          upperSetpoint: {
+          lowerSetpoint: {
             value: newCoolTemp.toString(10),
             scale: units,
           },
@@ -461,7 +463,7 @@ export default class ThermostatAccessory extends BaseAccessory {
   }
 
   async handleHeatTempGet(): Promise<number> {
-    const alexaValueName = 'lowerSetpoint';
+    const alexaValueName = 'upperSetpoint';
     const determineHeatTemp = flow(
       A.findFirst<ThermostatState>(
         ({ name, featureName }) =>
@@ -515,11 +517,11 @@ export default class ThermostatAccessory extends BaseAccessory {
         'thermostat',
         'setTargetSetpoint',
         {
-          lowerSetpoint: {
+          upperSetpoint: {
             value: newHeatTemp.toString(10),
             scale: units,
           },
-          upperSetpoint: {
+          lowerSetpoint: {
             value: coolTemp.value.toString(10),
             scale: units,
           },
@@ -537,7 +539,7 @@ export default class ThermostatAccessory extends BaseAccessory {
               scale: units,
             },
             featureName: 'thermostat',
-            name: 'lowerSetpoint',
+            name: 'upperSetpoint',
           });
         },
       ),
@@ -605,8 +607,8 @@ export default class ThermostatAccessory extends BaseAccessory {
 
   private calculateTargetTemp() {
     const featureName: ThermostatFeaturesType = 'thermostat';
-    const maybeHeatTemp = this.getCacheValue(featureName, 'lowerSetpoint');
-    const maybeCoolTemp = this.getCacheValue(featureName, 'upperSetpoint');
+    const maybeHeatTemp = this.getCacheValue(featureName, 'upperSetpoint');
+    const maybeCoolTemp = this.getCacheValue(featureName, 'lowerSetpoint');
     if (
       this.isTempWithScale(maybeHeatTemp) &&
       this.isTempWithScale(maybeCoolTemp)
