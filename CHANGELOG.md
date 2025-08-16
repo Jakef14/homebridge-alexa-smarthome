@@ -207,7 +207,7 @@ See the [roadmap](https://homebridge-alexa-smarthome.canny.io/) for up-to-date, 
 
 ### Added
 
-- Support Echo smart speaker and smart display devices. Currently, Echo support includes play, pause, next track, previous track, and changing volume. See [Echo device features](https://github.com/joeyhage/homebridge-alexa-smarthome#echo-devices) for instructions.
+- Support Echo smart speaker and smart display devices. Currently, Echo support includes play, pause, next track, previous track, and changing volume. See [Echo device features](https://github.com/jakef14/homebridge-alexa-smarthome#echo-devices) for instructions.
 
 ## [0.1.2] - 2023-09-06
 
@@ -261,7 +261,7 @@ See the [roadmap](https://homebridge-alexa-smarthome.canny.io/) for up-to-date, 
 
 - Support for outlets i.e. smart plugs.
 
-[unreleased]: https://github.com/joeyhage/homebridge-alexa-smarthome/compare/v1.0.1...HEAD
-[1.0.1]: https://github.com/joeyhage/homebridge-alexa-smarthome/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/joeyhage/homebridge-alexa-smarthome/releases/tag/v1.0.0
-[0.0.15]: https://github.com/joeyhage/homebridge-alexa-smarthome/releases/tag/v0.0.15
+[unreleased]: https://github.com/jakef14/homebridge-alexa-smarthome/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/jakef14/homebridge-alexa-smarthome/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/jakef14/homebridge-alexa-smarthome/releases/tag/v1.0.0
+[0.0.15]: https://github.com/jakef14/homebridge-alexa-smarthome/releases/tag/v0.0.15
