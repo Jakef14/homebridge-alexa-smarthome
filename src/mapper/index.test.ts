@@ -128,7 +128,7 @@ describe('mapAlexaDeviceToHomeKitAccessoryInfos', () => {
       id: '123',
       displayName: 'test mini split',
       description: 'test',
-      supportedOperations: ['setTargetSetpoint'],
+      supportedOperations: ['setTargetSetpoint', 'setThermostatMode'],
       providerData: {
         enabled: true,
         categoryType: 'APPLIANCE',
