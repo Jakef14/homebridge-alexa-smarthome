@@ -151,6 +151,19 @@ const determineSupportedHomeKitAccessories = (
           },
         ]),
     )
+    .when(
+      ([type, ops]) =>
+        type === 'APPLICATION' &&
+        supportsRequiredActions(ThermostatAccessory.requiredOperations, ops),
+      () =>
+        E.of([
+          {
+            altDeviceName: O.none,
+            deviceType: platform.Service.Thermostat.UUID,
+            uuid: generateUuid(platform, entityId, device.deviceType),
+          },
+        ]),
+    )
     .with(['ALEXA_VOICE_ENABLED', Pattern._], () =>
       E.of([
         ...echo.toSupportedHomeKitAccessories(

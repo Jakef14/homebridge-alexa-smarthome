@@ -39,6 +39,8 @@ export default class ThermostatAccessory extends BaseAccessory {
   private isAirConditioner = false;
   private supportsHeat = true;
   private supportsCool = true;
+  // Some mini-split systems (e.g. Mitsubishi Comfort) expose a fan-only mode
+  private supportsFanOnly = true;
 
   configureServices() {
     // Determine AC/thermostat behavior and supported modes before wiring characteristics
@@ -140,7 +142,12 @@ export default class ThermostatAccessory extends BaseAccessory {
       O.flatMap(({ value }) => tempMapper.mapAlexaTempToHomeKit(value)),
       O.tap((s) =>
         O.of(
-          this.logWithContext('debug', `Get current temperature result: ${s}`),
+          this.logWithContext(
+            'debug',
+            `Get current temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
+          ),
         ),
       ),
     );
@@ -178,32 +185,7 @@ export default class ThermostatAccessory extends BaseAccessory {
   }
 
   async handleTempUnitsGet(): Promise<number> {
-    const determineTempUnits = flow(
-      A.findFirst<ThermostatState>(
-        ({ featureName }) => featureName === 'temperatureSensor',
-      ),
-      O.tap(({ value }) => {
-        return O.of(
-          this.logWithContext(
-            'debug',
-            `Get temperature units result: ${
-              util.isRecord(value) ? value.scale : 'Unknown'
-            }`,
-          ),
-        );
-      }),
-      O.flatMap(({ value }) =>
-        tempMapper.mapAlexaTempUnitsToHomeKit(value, this.Characteristic),
-      ),
-    );
-
-    return pipe(
-      this.getStateGraphQl(determineTempUnits),
-      TE.match((e) => {
-        this.logWithContext('errorT', 'Get temperature units', e);
-        throw this.serviceCommunicationError;
-      }, identity),
-    )();
+    return this.Characteristic.TemperatureDisplayUnits.FAHRENHEIT;
   }
 
   async handleTargetStateGet(): Promise<number> {
@@ -385,7 +367,9 @@ export default class ThermostatAccessory extends BaseAccessory {
         O.of(
           this.logWithContext(
             'debug',
-            `Get target temperature result: ${s} Celsius`,
+            `Get target temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
           ),
         ),
       ),
@@ -465,7 +449,9 @@ export default class ThermostatAccessory extends BaseAccessory {
         O.of(
           this.logWithContext(
             'debug',
-            `Get cooling temperature result: ${s} Celsius`,
+            `Get cooling temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
           ),
         ),
       ),
@@ -549,7 +535,9 @@ export default class ThermostatAccessory extends BaseAccessory {
         O.of(
           this.logWithContext(
             'debug',
-            `Get heating temperature result: ${s} Celsius`,
+            `Get heating temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
           ),
         ),
       ),
@@ -780,6 +768,8 @@ export default class ThermostatAccessory extends BaseAccessory {
     // Defaults if we haven't cached anything yet:
     this.supportsCool = hasUpper || true; // assume cooling is available (safe for mini-splits)
     this.supportsHeat = hasLower || false; // default to no-heat until proven otherwise
+    // Always expose fan-only mode for devices like Mitsubishi mini splits
+    this.supportsFanOnly = true;
 
     // If name clearly indicates AC and we didn’t see heat, force AC-only
     if (this.inferIsAirConditioner() && !hasLower) {
@@ -789,19 +779,28 @@ export default class ThermostatAccessory extends BaseAccessory {
 
     this.logWithContext(
       'debug',
-      `Mode support detected: supportsCool=${this.supportsCool}, supportsHeat=${this.supportsHeat}, isAC=${this.isAirConditioner}`,
+      `Mode support detected: supportsCool=${this.supportsCool}, supportsHeat=${this.supportsHeat}, fanOnly=${this.supportsFanOnly}, isAC=${this.isAirConditioner}`,
     );
   }
 
   /** NEW: restrict HomeKit TargetHeatingCoolingState to supported values */
   private constrainTargetStateProps(): void {
     const C = this.Characteristic.TargetHeatingCoolingState;
-    const valid =
+    const target = C as unknown as { FAN_ONLY?: number };
+    if (typeof target.FAN_ONLY !== 'number') {
+      target.FAN_ONLY = 4;
+    }
+
+    let valid =
       this.supportsHeat && this.supportsCool
         ? [C.OFF, C.HEAT, C.COOL, C.AUTO]
         : this.supportsCool
         ? [C.OFF, C.COOL, C.AUTO]
         : [C.OFF, C.HEAT, C.AUTO];
+
+    if (this.supportsFanOnly) {
+      valid = [...valid, target.FAN_ONLY];
+    }
 
     this.service.getCharacteristic(C).setProps({ validValues: valid });
   }
