@@ -157,9 +157,6 @@ export const round = (value: number, decimals: number) => {
   return Number(Math.round(Number(value + 'e' + decimals)) + 'e-' + decimals);
 };
 
-export const celsiusToFahrenheit = (value: number) =>
-  round((value * 9) / 5 + 32, 1);
-
 export const isRecord = <T extends string | number | symbol>(
   obj: unknown,
 ): obj is Record<T, unknown> =>
