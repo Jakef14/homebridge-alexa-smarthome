@@ -121,4 +121,38 @@ describe('mapAlexaDeviceToHomeKitAccessoryInfos', () => {
       ]),
     );
   });
+
+  test('should map application thermostat device to thermostat accessory', async () => {
+    // given
+    const device = {
+      id: '123',
+      displayName: 'test mini split',
+      description: 'test',
+      supportedOperations: ['setTargetSetpoint'],
+      providerData: {
+        enabled: true,
+        categoryType: 'APPLIANCE',
+        deviceType: 'APPLICATION',
+      },
+    };
+    const platform = global.createPlatform();
+
+    // when
+    const thermostatAcc = mapper.mapAlexaDeviceToHomeKitAccessoryInfos(
+      platform,
+      randomUUID(),
+      device,
+    );
+
+    // then
+    expect(thermostatAcc).toStrictEqual(
+      E.right([
+        {
+          altDeviceName: O.none,
+          deviceType: platform.Service.Thermostat.UUID,
+          uuid: global.TEST_UUID,
+        },
+      ]),
+    );
+  });
 });
