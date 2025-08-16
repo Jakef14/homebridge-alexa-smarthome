@@ -172,6 +172,7 @@ const determineSupportedHomeKitAccessories = (
         ),
       ),
     )
+    .with(['APPLICATION', Pattern._], () => E.of([]))
     .when(
       ([_, ops]) =>
         supportsRequiredActions(SwitchAccessory.requiredOperations, ops),

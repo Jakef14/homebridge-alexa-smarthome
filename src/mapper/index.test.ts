@@ -53,6 +53,31 @@ describe('mapAlexaDeviceToHomeKitAccessoryInfos', () => {
     // then
     expect(lightAcc).toStrictEqual(E.left(new InvalidDeviceError(device)));
   });
+  test('should skip application devices', async () => {
+    // given
+    const device: SmartHomeDevice = {
+      id: '123',
+      endpointId: 'endpoint',
+      displayName: 'app device',
+      supportedOperations: [],
+      enabled: true,
+      deviceType: 'APPLICATION',
+      serialNumber: 'SN',
+      model: 'Model',
+      manufacturer: 'Manufacturer',
+    };
+    const platform = global.createPlatform();
+
+    // when
+    const result = mapper.mapAlexaDeviceToHomeKitAccessoryInfos(
+      platform,
+      randomUUID(),
+      device,
+    );
+
+    // then
+    expect(result).toStrictEqual(E.right([]));
+  });
 
   test('should map switch with brightness capability to light bulb accessory', async () => {
     // given

@@ -142,7 +142,12 @@ export default class ThermostatAccessory extends BaseAccessory {
       O.flatMap(({ value }) => tempMapper.mapAlexaTempToHomeKit(value)),
       O.tap((s) =>
         O.of(
-          this.logWithContext('debug', `Get current temperature result: ${s}`),
+          this.logWithContext(
+            'debug',
+            `Get current temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
+          ),
         ),
       ),
     );
@@ -180,32 +185,7 @@ export default class ThermostatAccessory extends BaseAccessory {
   }
 
   async handleTempUnitsGet(): Promise<number> {
-    const determineTempUnits = flow(
-      A.findFirst<ThermostatState>(
-        ({ featureName }) => featureName === 'temperatureSensor',
-      ),
-      O.tap(({ value }) => {
-        return O.of(
-          this.logWithContext(
-            'debug',
-            `Get temperature units result: ${
-              util.isRecord(value) ? value.scale : 'Unknown'
-            }`,
-          ),
-        );
-      }),
-      O.flatMap(({ value }) =>
-        tempMapper.mapAlexaTempUnitsToHomeKit(value, this.Characteristic),
-      ),
-    );
-
-    return pipe(
-      this.getStateGraphQl(determineTempUnits),
-      TE.match((e) => {
-        this.logWithContext('errorT', 'Get temperature units', e);
-        throw this.serviceCommunicationError;
-      }, identity),
-    )();
+    return this.Characteristic.TemperatureDisplayUnits.FAHRENHEIT;
   }
 
   async handleTargetStateGet(): Promise<number> {
@@ -387,7 +367,9 @@ export default class ThermostatAccessory extends BaseAccessory {
         O.of(
           this.logWithContext(
             'debug',
-            `Get target temperature result: ${s} Celsius`,
+            `Get target temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
           ),
         ),
       ),
@@ -467,7 +449,9 @@ export default class ThermostatAccessory extends BaseAccessory {
         O.of(
           this.logWithContext(
             'debug',
-            `Get cooling temperature result: ${s} Celsius`,
+            `Get cooling temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
           ),
         ),
       ),
@@ -551,7 +535,9 @@ export default class ThermostatAccessory extends BaseAccessory {
         O.of(
           this.logWithContext(
             'debug',
-            `Get heating temperature result: ${s} Celsius`,
+            `Get heating temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
           ),
         ),
       ),
