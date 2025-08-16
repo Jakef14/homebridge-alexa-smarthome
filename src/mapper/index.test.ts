@@ -53,13 +53,13 @@ describe('mapAlexaDeviceToHomeKitAccessoryInfos', () => {
     // then
     expect(lightAcc).toStrictEqual(E.left(new InvalidDeviceError(device)));
   });
-  test('should skip application devices', async () => {
+  test('should map application thermostat to thermostat accessory', async () => {
     // given
     const device: SmartHomeDevice = {
       id: '123',
       endpointId: 'endpoint',
       displayName: 'app device',
-      supportedOperations: [],
+      supportedOperations: ['setTargetSetpoint'],
       enabled: true,
       deviceType: 'APPLICATION',
       serialNumber: 'SN',
@@ -76,7 +76,15 @@ describe('mapAlexaDeviceToHomeKitAccessoryInfos', () => {
     );
 
     // then
-    expect(result).toStrictEqual(E.right([]));
+    expect(result).toStrictEqual(
+      E.right([
+        {
+          altDeviceName: O.none,
+          deviceType: platform.Service.Thermostat.UUID,
+          uuid: global.TEST_UUID,
+        },
+      ]),
+    );
   });
 
   test('should map switch with brightness capability to light bulb accessory', async () => {

@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default thermostat temperature units to Fahrenheit.
 
 ### Fixed
-- Skip APPLICATION devices to avoid connection errors.
+- Handle APPLICATION device types as thermostats to support app-based mini splits.
 
 See the [roadmap](https://homebridge-alexa-smarthome.canny.io/) for up-to-date, unreleased work in progress.
 
