@@ -8,6 +8,7 @@ export const SupportedDeviceTypes = [
   'FAN',
   'SMARTPLUG',
   'THERMOSTAT',
+  'APPLICATION',
   'ALEXA_VOICE_ENABLED',
   'AIR_QUALITY_MONITOR',
   'VACUUM_CLEANER',
