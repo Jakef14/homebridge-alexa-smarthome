@@ -12,6 +12,7 @@ import {
 } from 'fp-ts/lib/function';
 import { CharacteristicValue, Service } from 'homebridge';
 import { CapabilityState, SupportedActionsType } from '../domain/alexa';
+import { InvalidResponse } from '../domain/alexa/errors';
 import { RangeFeature } from '../domain/alexa/save-device-capabilities';
 import { SwitchState } from '../domain/alexa/switch';
 import {
@@ -26,29 +27,33 @@ import {
 import * as mapper from '../mapper/power-mapper';
 import * as tempMapper from '../mapper/temperature-mapper';
 import * as tstatMapper from '../mapper/thermostat-mapper';
+import * as util from '../util';
 import BaseAccessory from './base-accessory';
 
 export default class ThermostatAccessory extends BaseAccessory {
-  static requiredOperations: SupportedActionsType[] = [
-    'setTargetSetpoint',
-    'setThermostatMode',
-  ];
+  static requiredOperations: SupportedActionsType[] = ['setTargetSetpoint'];
   service: Service;
   isExternalAccessory = false;
   isPowerSupported = true;
-  private readonly tempUnits: TemperatureScale = 'FAHRENHEIT';
+
+  // NEW: capability flags
+  private isAirConditioner = false;
+  private supportsHeat = true;
+  private supportsCool = true;
+  // Some mini-split systems (e.g. Mitsubishi Comfort) expose a fan-only mode
+  private supportsFanOnly = true;
 
   configureServices() {
+    // Determine AC/thermostat behavior and supported modes before wiring characteristics
+    this.detectSupportedModes();
+    this.isAirConditioner = this.inferIsAirConditioner();
+
     this.service =
       this.platformAcc.getService(this.Service.Thermostat) ||
       this.platformAcc.addService(
         this.Service.Thermostat,
         this.device.displayName,
       );
-
-    this.service
-      .getCharacteristic(this.Characteristic.CurrentHeatingCoolingState)
-      .onGet(this.handleCurrentStateGet.bind(this));
 
     this.service
       .getCharacteristic(this.Characteristic.CurrentTemperature)
@@ -63,31 +68,61 @@ export default class ThermostatAccessory extends BaseAccessory {
 
     this.service
       .getCharacteristic(this.Characteristic.TargetHeatingCoolingState)
-      .setProps({
-        validValues: [
-          this.Characteristic.TargetHeatingCoolingState.OFF,
-          this.Characteristic.TargetHeatingCoolingState.HEAT,
-          this.Characteristic.TargetHeatingCoolingState.COOL,
-          this.Characteristic.TargetHeatingCoolingState.AUTO,
-        ],
-      })
       .onGet(this.handleTargetStateGet.bind(this))
       .onSet(this.handleTargetStateSet.bind(this));
+
+    // Limit valid TargetHeatingCoolingState values to what the device actually supports
+    this.constrainTargetStateProps();
 
     this.service
       .getCharacteristic(this.Characteristic.TargetTemperature)
       .onGet(this.handleTargetTempGet.bind(this))
       .onSet(this.handleTargetTempSet.bind(this));
 
-    this.service
-      .getCharacteristic(this.Characteristic.CoolingThresholdTemperature)
-      .onGet(this.handleCoolTempGet.bind(this))
-      .onSet(this.handleCoolTempSet.bind(this));
+    // Only expose Cooling/Heating thresholds that are supported
+    if (this.supportsCool) {
+      this.service
+        .getCharacteristic(this.Characteristic.CoolingThresholdTemperature)
+        .onGet(this.handleCoolTempGet.bind(this))
+        .onSet(this.handleCoolTempSet.bind(this));
+    } else {
+      // If it exists due to prior cache, remove it safely
+      try {
+        if (
+          this.service.testCharacteristic(
+            this.Characteristic.CoolingThresholdTemperature,
+          )
+        ) {
+          const ch = this.service.getCharacteristic(
+            this.Characteristic.CoolingThresholdTemperature,
+          );
+          // @ts-ignore homebridge types allow this at runtime
+          this.service.removeCharacteristic(ch);
+        }
+      } catch {}
+    }
 
-    this.service
-      .getCharacteristic(this.Characteristic.HeatingThresholdTemperature)
-      .onGet(this.handleHeatTempGet.bind(this))
-      .onSet(this.handleHeatTempSet.bind(this));
+    if (this.supportsHeat) {
+      this.service
+        .getCharacteristic(this.Characteristic.HeatingThresholdTemperature)
+        .onGet(this.handleHeatTempGet.bind(this))
+        .onSet(this.handleHeatTempSet.bind(this));
+    } else {
+      // If it exists due to prior cache, remove it safely
+      try {
+        if (
+          this.service.testCharacteristic(
+            this.Characteristic.HeatingThresholdTemperature,
+          )
+        ) {
+          const ch = this.service.getCharacteristic(
+            this.Characteristic.HeatingThresholdTemperature,
+          );
+          // @ts-ignore
+          this.service.removeCharacteristic(ch);
+        }
+      } catch {}
+    }
 
     pipe(
       this.rangeFeatures,
@@ -108,16 +143,25 @@ export default class ThermostatAccessory extends BaseAccessory {
       O.flatMap(({ value }) => tempMapper.mapAlexaTempToHomeKit(value)),
       O.tap((s) =>
         O.of(
-          this.logWithContext('debug', `Get current temperature result: ${s}`),
+          this.logWithContext(
+            'debug',
+            `Get current temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
+          ),
         ),
       ),
     );
 
+    const fallback =
+      (this.getHapValue(this.Characteristic.CurrentTemperature) as number) ?? 0;
     return pipe(
       this.getStateGraphQl(determineCurrentTemp),
       TE.match((e) => {
-        this.logWithContext('errorT', 'Get current temperature', e);
-        throw this.serviceCommunicationError;
+        if (!(e instanceof InvalidResponse)) {
+          this.logWithContext('debug', 'Get current temperature', e);
+        }
+        return fallback;
       }, identity),
     )();
   }
@@ -136,29 +180,23 @@ export default class ThermostatAccessory extends BaseAccessory {
       ),
     );
 
+    const fallback =
+      (this.getHapValue(
+        this.Characteristic.CurrentRelativeHumidity,
+      ) as number) ?? 0;
     return pipe(
       this.getStateGraphQl(determineCurrentRelativeHumidity),
       TE.match((e) => {
-        this.logWithContext('errorT', 'Get current humidity', e);
-        throw this.serviceCommunicationError;
+        if (!(e instanceof InvalidResponse)) {
+          this.logWithContext('debug', 'Get current humidity', e);
+        }
+        return fallback;
       }, identity),
     )();
   }
 
   async handleTempUnitsGet(): Promise<number> {
     return this.Characteristic.TemperatureDisplayUnits.FAHRENHEIT;
-  }
-
-  async handleCurrentStateGet(): Promise<number> {
-    const targetState = await this.handleTargetStateGet();
-    switch (targetState) {
-      case this.Characteristic.TargetHeatingCoolingState.HEAT:
-        return this.Characteristic.CurrentHeatingCoolingState.HEAT;
-      case this.Characteristic.TargetHeatingCoolingState.COOL:
-        return this.Characteristic.CurrentHeatingCoolingState.COOL;
-      default:
-        return this.Characteristic.CurrentHeatingCoolingState.OFF;
-    }
   }
 
   async handleTargetStateGet(): Promise<number> {
@@ -198,6 +236,13 @@ export default class ThermostatAccessory extends BaseAccessory {
 
     return pipe(
       this.getStateGraphQl(determineTargetState),
+      TE.map((s) => {
+        // After fetching the latest state, recalculate supported modes so
+        // TargetHeatingCoolingState exposes the correct values
+        this.detectSupportedModes();
+        this.constrainTargetStateProps();
+        return s;
+      }),
       TE.match((e) => {
         this.logWithContext('errorT', 'Get target state', e);
         throw this.serviceCommunicationError;
@@ -209,6 +254,16 @@ export default class ThermostatAccessory extends BaseAccessory {
     this.logWithContext('debug', `Triggered set target state: ${value}`);
     if (typeof value !== 'number') {
       throw this.invalidValueError;
+    }
+
+    // Guard: block HEAT if the device is AC-only
+    const C = this.Characteristic.TargetHeatingCoolingState;
+    if (!this.supportsHeat && value === C.HEAT) {
+      this.logWithContext(
+        'debug',
+        'Ignoring HEAT: device is AC-only (no heating support)',
+      );
+      return;
     }
 
     let isDeviceOn: boolean;
@@ -224,39 +279,47 @@ export default class ThermostatAccessory extends BaseAccessory {
       isDeviceOn = true;
     }
 
-    const mode = tstatMapper.mapHomekitModeToAlexa(value, this.Characteristic);
-    const setMode = pipe(
-      this.platform.alexaApi.setDeviceStateGraphQl(
-        this.device.endpointId,
-        'thermostat',
-        'setThermostatMode',
-        { thermostatMode: mode },
-      ),
-      TE.match(
-        (e) => {
-          this.logWithContext('errorT', 'Set target state error', e);
-          throw this.serviceCommunicationError;
-        },
-        () => {
-          this.updateCacheValue({
-            value: mode,
-            featureName: 'thermostat',
-            name: 'thermostatMode',
-          });
-        },
-      ),
-    );
-
-    if (value === 0) {
-      await setMode();
-      if (this.isPowerSupported) {
-        await this.handlePowerSet(false);
-      }
+    if (value === 0 && this.isPowerSupported) {
+      await this.handlePowerSet(false);
+      this.updateCacheValue({
+        value: tstatMapper.mapHomekitModeToAlexa(value, this.Characteristic),
+        featureName: 'thermostat',
+        name: 'thermostatMode',
+      });
     } else {
-      if (!isDeviceOn && this.isPowerSupported) {
+      if (!isDeviceOn) {
         await this.handlePowerSet(true);
+      } else {
+        return pipe(
+          this.platform.alexaApi.setDeviceStateGraphQl(
+            this.device.endpointId,
+            'thermostat',
+            'setThermostatMode',
+            {
+              thermostatMode: tstatMapper.mapHomekitModeToAlexa(
+                value,
+                this.Characteristic,
+              ),
+            },
+          ),
+          TE.match(
+            (e) => {
+              this.logWithContext('errorT', 'Set target state error', e);
+              throw this.serviceCommunicationError;
+            },
+            () => {
+              this.updateCacheValue({
+                value: tstatMapper.mapHomekitModeToAlexa(
+                  value,
+                  this.Characteristic,
+                ),
+                featureName: 'thermostat',
+                name: 'thermostatMode',
+              });
+            },
+          ),
+        )();
       }
-      await setMode();
     }
   }
 
@@ -322,7 +385,9 @@ export default class ThermostatAccessory extends BaseAccessory {
         O.of(
           this.logWithContext(
             'debug',
-            `Get target temperature result: ${s} Celsius`,
+            `Get target temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
           ),
         ),
       ),
@@ -332,11 +397,24 @@ export default class ThermostatAccessory extends BaseAccessory {
     if (this.onInvalidOrAutoMode() && O.isSome(targetTempOnAuto)) {
       return targetTempOnAuto.value;
     } else {
+      const fallback = pipe(
+        this.getCacheValue('temperatureSensor'),
+        O.filter(isTemperatureValue),
+        O.flatMap(tempMapper.mapAlexaTempToHomeKit),
+        O.getOrElse(
+          () =>
+            (this.getHapValue(
+              this.Characteristic.TargetTemperature,
+            ) as number) ?? 0,
+        ),
+      );
       return pipe(
         this.getStateGraphQl(determineTargetTemp),
         TE.match((e) => {
-          this.logWithContext('errorT', 'Get target temperature', e);
-          throw this.serviceCommunicationError;
+          if (!(e instanceof InvalidResponse)) {
+            this.logWithContext('debug', 'Get target temperature', e);
+          }
+          return fallback;
         }, identity),
       )();
     }
@@ -345,12 +423,19 @@ export default class ThermostatAccessory extends BaseAccessory {
   async handleTargetTempSet(value: CharacteristicValue): Promise<void> {
     this.logWithContext('debug', `Triggered set target temperature: ${value}`);
     const maybeTemp = this.getCacheValue('temperatureSensor');
-    if (this.onInvalidOrAutoMode() || typeof value !== 'number') {
+    //If received bad data stop
+    //If in Auto mode stop
+    if (this.onInvalidOrAutoMode() || !this.isTempWithScale(maybeTemp)) {
       return;
     }
-    const units = this.isTempWithScale(maybeTemp)
-      ? (maybeTemp.value.scale.toUpperCase() as TemperatureScale)
-      : this.tempUnits;
+    if (typeof value !== 'number') {
+      throw this.invalidValueError;
+    }
+    const units = (
+      maybeTemp.value.scale.toUpperCase
+        ? maybeTemp.value.scale.toUpperCase()
+        : String(maybeTemp.value.scale).toUpperCase()
+    ) as TemperatureScale;
     const newTemp = tempMapper.mapHomeKitTempToAlexa(value, units);
     return pipe(
       this.platform.alexaApi.setDeviceStateGraphQl(
@@ -395,7 +480,9 @@ export default class ThermostatAccessory extends BaseAccessory {
         O.of(
           this.logWithContext(
             'debug',
-            `Get cooling temperature result: ${s} Celsius`,
+            `Get cooling temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
           ),
         ),
       ),
@@ -403,11 +490,17 @@ export default class ThermostatAccessory extends BaseAccessory {
 
     const autoTemp = this.getAutoTempFromTargetTemp();
     if (this.onAutoMode() || O.isNone(autoTemp)) {
+      const fallback =
+        (this.getHapValue(
+          this.Characteristic.CoolingThresholdTemperature,
+        ) as number) ?? 0;
       return pipe(
         this.getStateGraphQl(determineCoolTemp),
         TE.match((e) => {
-          this.logWithContext('errorT', 'Get cooling temperature', e);
-          throw this.serviceCommunicationError;
+          if (!(e instanceof InvalidResponse)) {
+            this.logWithContext('debug', 'Get cooling temperature', e);
+          }
+          return fallback;
         }, identity),
       )();
     } else {
@@ -479,7 +572,9 @@ export default class ThermostatAccessory extends BaseAccessory {
         O.of(
           this.logWithContext(
             'debug',
-            `Get heating temperature result: ${s} Celsius`,
+            `Get heating temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
           ),
         ),
       ),
@@ -487,11 +582,17 @@ export default class ThermostatAccessory extends BaseAccessory {
 
     const autoTemp = this.getAutoTempFromTargetTemp();
     if (this.onAutoMode() || O.isNone(autoTemp)) {
+      const fallback =
+        (this.getHapValue(
+          this.Characteristic.HeatingThresholdTemperature,
+        ) as number) ?? 0;
       return pipe(
         this.getStateGraphQl(determineHeatTemp),
         TE.match((e) => {
-          this.logWithContext('errorT', 'Get heating temperature', e);
-          throw this.serviceCommunicationError;
+          if (!(e instanceof InvalidResponse)) {
+            this.logWithContext('debug', 'Get heating temperature', e);
+          }
+          return fallback;
         }, identity),
       )();
     } else {
@@ -560,11 +661,15 @@ export default class ThermostatAccessory extends BaseAccessory {
       O.map(({ value }) => value === 'ON'),
     );
 
+    const fallback =
+      (this.getHapValue(this.Characteristic.On) as boolean) ?? false;
     return pipe(
       this.getStateGraphQl(determinePowerState),
       TE.match((e) => {
-        this.logWithContext('errorT', 'Get power', e);
-        throw this.serviceCommunicationError;
+        if (!(e instanceof InvalidResponse)) {
+          this.logWithContext('debug', 'Get power', e);
+        }
+        return fallback;
       }, identity),
     )();
   }
@@ -578,7 +683,7 @@ export default class ThermostatAccessory extends BaseAccessory {
     return pipe(
       this.platform.alexaApi.setDeviceStateGraphQl(
         this.device.endpointId,
-        'power',
+        'thermostat',
         action,
       ),
       TE.match(
@@ -667,11 +772,88 @@ export default class ThermostatAccessory extends BaseAccessory {
       throw this.invalidValueError;
     }
 
-    const units = this.tempUnits;
+    const units = (
+      coolTemp.scale.toUpperCase
+        ? coolTemp.scale.toUpperCase()
+        : String(coolTemp.scale).toUpperCase()
+    ) as TemperatureScale;
     return {
       units,
       coolTemp,
       heatTemp,
     };
+  }
+
+  /** NEW: infer whether the device should be treated as an air conditioner */
+  private inferIsAirConditioner(): boolean {
+    const name = String(this.device?.displayName ?? '').toLowerCase();
+    const hasUpper = O.isSome(
+      this.getCacheValue('thermostat', 'upperSetpoint'),
+    );
+    const hasLower = O.isSome(
+      this.getCacheValue('thermostat', 'lowerSetpoint'),
+    );
+    if (hasUpper && !hasLower) return true;
+    if (
+      name.includes('air conditioner') ||
+      name.includes('a/c') ||
+      name.includes(' ac')
+    )
+      return true;
+    return false;
+  }
+
+  /** NEW: detect which modes (heat/cool) are supported */
+  private detectSupportedModes(): void {
+    const hasUpper = O.isSome(
+      this.getCacheValue('thermostat', 'upperSetpoint'),
+    ); // COOL present
+    const hasLower = O.isSome(
+      this.getCacheValue('thermostat', 'lowerSetpoint'),
+    ); // HEAT present
+
+    const modeImpliesHeat = pipe(
+      this.getCacheValue('thermostat', 'thermostatMode'),
+      O.map((m) => String(m).toUpperCase()),
+      O.exists((m) => m === 'HEAT' || m === 'AUTO' || m === 'ECO'),
+    );
+
+    // Determine if the device should be treated as an air conditioner
+    this.isAirConditioner = this.inferIsAirConditioner();
+
+    // Defaults if we haven't cached anything yet:
+    this.supportsCool = hasUpper || true; // assume cooling is available (safe for mini-splits)
+    // Treat devices as heating capable if they aren't clearly AC-only or if the
+    // current mode implies heating support
+    this.supportsHeat = hasLower || modeImpliesHeat || !this.isAirConditioner;
+    // Always expose fan-only mode for devices like Mitsubishi mini splits
+    this.supportsFanOnly = true;
+
+    this.logWithContext(
+      'debug',
+      `Mode support detected: supportsCool=${this.supportsCool}, supportsHeat=${this.supportsHeat}, fanOnly=${this.supportsFanOnly}, isAC=${this.isAirConditioner}`,
+    );
+  }
+
+  /** NEW: restrict HomeKit TargetHeatingCoolingState to supported values */
+  private constrainTargetStateProps(): void {
+    const C = this.Characteristic.TargetHeatingCoolingState;
+    const target = C as unknown as { FAN_ONLY?: number };
+    if (typeof target.FAN_ONLY !== 'number') {
+      target.FAN_ONLY = 4;
+    }
+
+    let valid =
+      this.supportsHeat && this.supportsCool
+        ? [C.OFF, C.HEAT, C.COOL, C.AUTO]
+        : this.supportsCool
+        ? [C.OFF, C.COOL, C.AUTO]
+        : [C.OFF, C.HEAT, C.AUTO];
+
+    if (this.supportsFanOnly) {
+      valid = [...valid, target.FAN_ONLY];
+    }
+
+    this.service.getCharacteristic(C).setProps({ validValues: valid });
   }
 }
