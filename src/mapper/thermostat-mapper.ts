@@ -10,7 +10,6 @@ export const mapAlexaModeToHomeKit = (
   match(value)
     .with('HEAT', constant(characteristic.TargetHeatingCoolingState.HEAT))
     .with('COOL', constant(characteristic.TargetHeatingCoolingState.COOL))
-    .with('AUTO', constant(characteristic.TargetHeatingCoolingState.AUTO))
     .otherwise(constant(characteristic.TargetHeatingCoolingState.OFF));
 
 export const mapHomekitModeToAlexa = (
@@ -21,4 +20,4 @@ export const mapHomekitModeToAlexa = (
     .with(characteristic.TargetHeatingCoolingState.OFF, constant('OFF'))
     .with(characteristic.TargetHeatingCoolingState.HEAT, constant('HEAT'))
     .with(characteristic.TargetHeatingCoolingState.COOL, constant('COOL'))
-    .otherwise(constant('AUTO'));
+    .otherwise(constant('OFF'));
