@@ -6,6 +6,7 @@ import { Service } from 'homebridge';
 import { SupportedActionsType } from '../domain/alexa';
 import { TempSensorState } from '../domain/alexa/temperature-sensor';
 import * as tempMapper from '../mapper/temperature-mapper';
+import * as util from '../util';
 import BaseAccessory from './base-accessory';
 
 export default class TemperatureAccessory extends BaseAccessory {
@@ -36,7 +37,9 @@ export default class TemperatureAccessory extends BaseAccessory {
         O.of(
           this.logWithContext(
             'debug',
-            `Get current temperature result: ${s} Celsius`,
+            `Get current temperature result: ${util.celsiusToFahrenheit(
+              s,
+            )} Fahrenheit`,
           ),
         ),
       ),

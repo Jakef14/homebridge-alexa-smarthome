@@ -24,6 +24,7 @@ export interface AlexaPlatformConfig extends PlatformConfig {
   };
   performance: Nullable<{
     cacheTTL: Nullable<number>;
+    backgroundRefresh: Nullable<boolean>;
   }>;
   debug: Nullable<boolean>;
 }
