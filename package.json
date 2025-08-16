@@ -1,21 +1,21 @@
 {
-  "displayName": "Homebridge Alexa Smart Home",
-  "name": "homebridge-alexa-smarthome",
-  "version": "2.3.0",
+  "displayName": "Homebridge AC Test",
+  "name": "homebridge-ac-test",
+  "version": "1.1.1",
   "description": "Homebridge plugin that can control smart home devices connected to Alexa.",
   "license": "MIT",
-  "author": "Joey Hage <contact@jmhage.com>",
-  "homepage": "https://github.com/joeyhage/homebridge-alexa-smarthome#readme",
+  "author": "Jake Franklin",
+  "homepage": "https://github.com/jakef14/homebridge-alexa-smarthome#readme",
   "repository": {
     "type": "git",
-    "url": "git://github.com/joeyhage/homebridge-alexa-smarthome.git"
+    "url": "git://github.com/jakef14/homebridge-alexa-smarthome.git"
   },
   "bugs": {
-    "url": "https://github.com/joeyhage/homebridge-alexa-smarthome/issues"
+    "url": "https://github.com/hakef14/homebridge-alexa-smarthome/issues"
   },
   "funding": {
     "type": "github",
-    "url": "https://github.com/sponsors/joeyhage"
+    "url": "https://github.com/sponsors/jakef14"
   },
   "engines": {
     "homebridge": "^1.6.0 || ^2.0.0",
