@@ -349,6 +349,14 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
     hbDeviceType: string,
     acc: PlatformAccessory,
   ): IOEither<AlexaDeviceError, BaseAccessory> {
+    const category = this.getAccessoryCategory(hbDeviceType);
+    let needsUpdate = false;
+
+    if (acc.category !== category) {
+      acc.category = category;
+      needsUpdate = true;
+    }
+
     if (
       !acc.context?.deviceId ||
       !acc.context?.deviceType ||
@@ -361,6 +369,10 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
         deviceType: device.deviceType,
         homebridgeDeviceType: hbDeviceType,
       };
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
       this.api.updatePlatformAccessories([acc]);
     }
     return pipe(
@@ -386,7 +398,12 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
     hbDeviceType: string,
     uuid: string,
   ): IOEither<AlexaDeviceError, BaseAccessory> {
-    const platAcc = new this.api.platformAccessory(device.displayName, uuid);
+    const category = this.getAccessoryCategory(hbDeviceType);
+    const platAcc = new this.api.platformAccessory(
+      device.displayName,
+      uuid,
+      category,
+    );
     platAcc.context = {
       ...platAcc.context,
       deviceId: device.id,
@@ -412,6 +429,13 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
         return E.of(constVoid());
       }),
     );
+  }
+
+  private getAccessoryCategory(hbDeviceType: string) {
+    const { Categories } = this.api.hap;
+    return hbDeviceType === this.Service.Thermostat.UUID
+      ? Categories.THERMOSTAT
+      : Categories.OTHER;
   }
 
   private findStaleAccessories(
