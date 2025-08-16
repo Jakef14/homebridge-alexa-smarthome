@@ -46,11 +46,9 @@ export default class ThermostatAccessory extends BaseAccessory {
         this.device.displayName,
       );
 
-    // this.service
-    //   .getCharacteristic(
-    //     this.platform.Characteristic.CurrentHeatingCoolingState,
-    //   )
-    //   .onGet(this.handleCurrentStateGet.bind(this));
+    this.service
+      .getCharacteristic(this.Characteristic.CurrentHeatingCoolingState)
+      .onGet(this.handleCurrentStateGet.bind(this));
 
     this.service
       .getCharacteristic(this.Characteristic.CurrentTemperature)
@@ -149,6 +147,18 @@ export default class ThermostatAccessory extends BaseAccessory {
 
   async handleTempUnitsGet(): Promise<number> {
     return this.Characteristic.TemperatureDisplayUnits.FAHRENHEIT;
+  }
+
+  async handleCurrentStateGet(): Promise<number> {
+    const targetState = await this.handleTargetStateGet();
+    switch (targetState) {
+      case this.Characteristic.TargetHeatingCoolingState.HEAT:
+        return this.Characteristic.CurrentHeatingCoolingState.HEAT;
+      case this.Characteristic.TargetHeatingCoolingState.COOL:
+        return this.Characteristic.CurrentHeatingCoolingState.COOL;
+      default:
+        return this.Characteristic.CurrentHeatingCoolingState.OFF;
+    }
   }
 
   async handleTargetStateGet(): Promise<number> {
