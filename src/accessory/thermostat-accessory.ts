@@ -644,8 +644,8 @@ export default class ThermostatAccessory extends BaseAccessory {
   }
 
   private getCachedTemps() {
-    const maybeCoolTemp = this.getCacheValue('thermostat', 'upperSetpoint');
-    const maybeHeatTemp = this.getCacheValue('thermostat', 'lowerSetpoint');
+    const maybeCoolTemp = this.getCacheValue('thermostat', 'lowerSetpoint');
+    const maybeHeatTemp = this.getCacheValue('thermostat', 'upperSetpoint');
     if (
       !this.isTempWithScale(maybeCoolTemp) ||
       !this.isTempWithScale(maybeHeatTemp)
