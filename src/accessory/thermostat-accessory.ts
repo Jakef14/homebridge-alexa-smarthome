@@ -236,6 +236,13 @@ export default class ThermostatAccessory extends BaseAccessory {
 
     return pipe(
       this.getStateGraphQl(determineTargetState),
+      TE.map((s) => {
+        // After fetching the latest state, recalculate supported modes so
+        // TargetHeatingCoolingState exposes the correct values
+        this.detectSupportedModes();
+        this.constrainTargetStateProps();
+        return s;
+      }),
       TE.match((e) => {
         this.logWithContext('errorT', 'Get target state', e);
         throw this.serviceCommunicationError;
@@ -805,17 +812,22 @@ export default class ThermostatAccessory extends BaseAccessory {
       this.getCacheValue('thermostat', 'lowerSetpoint'),
     ); // HEAT present
 
+    const modeImpliesHeat = pipe(
+      this.getCacheValue('thermostat', 'thermostatMode'),
+      O.map((m) => String(m).toUpperCase()),
+      O.exists((m) => m === 'HEAT' || m === 'AUTO' || m === 'ECO'),
+    );
+
+    // Determine if the device should be treated as an air conditioner
+    this.isAirConditioner = this.inferIsAirConditioner();
+
     // Defaults if we haven't cached anything yet:
     this.supportsCool = hasUpper || true; // assume cooling is available (safe for mini-splits)
-    this.supportsHeat = hasLower || false; // default to no-heat until proven otherwise
+    // Treat devices as heating capable if they aren't clearly AC-only or if the
+    // current mode implies heating support
+    this.supportsHeat = hasLower || modeImpliesHeat || !this.isAirConditioner;
     // Always expose fan-only mode for devices like Mitsubishi mini splits
     this.supportsFanOnly = true;
-
-    // If name clearly indicates AC and we didn’t see heat, force AC-only
-    if (this.inferIsAirConditioner() && !hasLower) {
-      this.supportsHeat = false;
-      this.supportsCool = true;
-    }
 
     this.logWithContext(
       'debug',
