@@ -65,6 +65,14 @@ export default class ThermostatAccessory extends BaseAccessory {
 
     this.service
       .getCharacteristic(this.Characteristic.TargetHeatingCoolingState)
+      .setProps({
+        validValues: [
+          this.Characteristic.TargetHeatingCoolingState.OFF,
+          this.Characteristic.TargetHeatingCoolingState.HEAT,
+          this.Characteristic.TargetHeatingCoolingState.COOL,
+          this.Characteristic.TargetHeatingCoolingState.AUTO,
+        ],
+      })
       .onGet(this.handleTargetStateGet.bind(this))
       .onSet(this.handleTargetStateSet.bind(this));
 
@@ -560,7 +568,7 @@ export default class ThermostatAccessory extends BaseAccessory {
     return pipe(
       this.platform.alexaApi.setDeviceStateGraphQl(
         this.device.endpointId,
-        'thermostat',
+        'power',
         action,
       ),
       TE.match(
