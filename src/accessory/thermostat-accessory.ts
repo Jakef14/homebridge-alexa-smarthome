@@ -3,12 +3,7 @@ import * as O from 'fp-ts/Option';
 import { Option, Some } from 'fp-ts/Option';
 import * as RR from 'fp-ts/ReadonlyRecord';
 import * as TE from 'fp-ts/TaskEither';
-import {
-  constTrue,
-  flow,
-  identity,
-  pipe
-} from 'fp-ts/lib/function';
+import { constTrue, flow, identity, pipe } from 'fp-ts/lib/function';
 import { CharacteristicValue, Service } from 'homebridge';
 import { CapabilityState, SupportedActionsType } from '../domain/alexa';
 import { RangeFeature } from '../domain/alexa/save-device-capabilities';
