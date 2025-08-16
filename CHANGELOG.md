@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 See the [roadmap](https://homebridge-alexa-smarthome.canny.io/) for up-to-date, unreleased work in progress.
 
+### Added
+
+- Support for Mitsubishi Comfort mini split devices that appear as applications, treating them as thermostats.
+- Full thermostat control including heating, auto mode, power off, and Fahrenheit handling.
+
 ## [2.3.0] - 2025-04-12
 
 ### Changed

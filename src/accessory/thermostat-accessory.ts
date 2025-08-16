@@ -26,14 +26,17 @@ import {
 import * as mapper from '../mapper/power-mapper';
 import * as tempMapper from '../mapper/temperature-mapper';
 import * as tstatMapper from '../mapper/thermostat-mapper';
-import * as util from '../util';
 import BaseAccessory from './base-accessory';
 
 export default class ThermostatAccessory extends BaseAccessory {
-  static requiredOperations: SupportedActionsType[] = ['setTargetSetpoint'];
+  static requiredOperations: SupportedActionsType[] = [
+    'setTargetSetpoint',
+    'setThermostatMode',
+  ];
   service: Service;
   isExternalAccessory = false;
   isPowerSupported = true;
+  private readonly tempUnits: TemperatureScale = 'FAHRENHEIT';
 
   configureServices() {
     this.service =
@@ -137,32 +140,7 @@ export default class ThermostatAccessory extends BaseAccessory {
   }
 
   async handleTempUnitsGet(): Promise<number> {
-    const determineTempUnits = flow(
-      A.findFirst<ThermostatState>(
-        ({ featureName }) => featureName === 'temperatureSensor',
-      ),
-      O.tap(({ value }) => {
-        return O.of(
-          this.logWithContext(
-            'debug',
-            `Get temperature units result: ${
-              util.isRecord(value) ? value.scale : 'Unknown'
-            }`,
-          ),
-        );
-      }),
-      O.flatMap(({ value }) =>
-        tempMapper.mapAlexaTempUnitsToHomeKit(value, this.Characteristic),
-      ),
-    );
-
-    return pipe(
-      this.getStateGraphQl(determineTempUnits),
-      TE.match((e) => {
-        this.logWithContext('errorT', 'Get temperature units', e);
-        throw this.serviceCommunicationError;
-      }, identity),
-    )();
+    return this.Characteristic.TemperatureDisplayUnits.FAHRENHEIT;
   }
 
   async handleTargetStateGet(): Promise<number> {
@@ -228,47 +206,39 @@ export default class ThermostatAccessory extends BaseAccessory {
       isDeviceOn = true;
     }
 
-    if (value === 0 && this.isPowerSupported) {
-      await this.handlePowerSet(false);
-      this.updateCacheValue({
-        value: tstatMapper.mapHomekitModeToAlexa(value, this.Characteristic),
-        featureName: 'thermostat',
-        name: 'thermostatMode',
-      });
-    } else {
-      if (!isDeviceOn) {
-        await this.handlePowerSet(true);
-      } else {
-        return pipe(
-          this.platform.alexaApi.setDeviceStateGraphQl(
-            this.device.endpointId,
-            'thermostat',
-            'setThermostatMode',
-            {
-              thermostatMode: tstatMapper.mapHomekitModeToAlexa(
-                value,
-                this.Characteristic,
-              ),
-            },
-          ),
-          TE.match(
-            (e) => {
-              this.logWithContext('errorT', 'Set target state error', e);
-              throw this.serviceCommunicationError;
-            },
-            () => {
-              this.updateCacheValue({
-                value: tstatMapper.mapHomekitModeToAlexa(
-                  value,
-                  this.Characteristic,
-                ),
-                featureName: 'thermostat',
-                name: 'thermostatMode',
-              });
-            },
-          ),
-        )();
+    const mode = tstatMapper.mapHomekitModeToAlexa(value, this.Characteristic);
+    const setMode = pipe(
+      this.platform.alexaApi.setDeviceStateGraphQl(
+        this.device.endpointId,
+        'thermostat',
+        'setThermostatMode',
+        { thermostatMode: mode },
+      ),
+      TE.match(
+        (e) => {
+          this.logWithContext('errorT', 'Set target state error', e);
+          throw this.serviceCommunicationError;
+        },
+        () => {
+          this.updateCacheValue({
+            value: mode,
+            featureName: 'thermostat',
+            name: 'thermostatMode',
+          });
+        },
+      ),
+    );
+
+    if (value === 0) {
+      await setMode();
+      if (this.isPowerSupported) {
+        await this.handlePowerSet(false);
       }
+    } else {
+      if (!isDeviceOn && this.isPowerSupported) {
+        await this.handlePowerSet(true);
+      }
+      await setMode();
     }
   }
 
@@ -357,15 +327,12 @@ export default class ThermostatAccessory extends BaseAccessory {
   async handleTargetTempSet(value: CharacteristicValue): Promise<void> {
     this.logWithContext('debug', `Triggered set target temperature: ${value}`);
     const maybeTemp = this.getCacheValue('temperatureSensor');
-    //If received bad data stop
-    //If in Auto mode stop
-    if (this.onInvalidOrAutoMode() || !this.isTempWithScale(maybeTemp)) {
+    if (this.onInvalidOrAutoMode() || typeof value !== 'number') {
       return;
     }
-    if (typeof value !== 'number') {
-      throw this.invalidValueError;
-    }
-    const units = maybeTemp.value.scale.toUpperCase() as TemperatureScale;
+    const units = this.isTempWithScale(maybeTemp)
+      ? (maybeTemp.value.scale.toUpperCase() as TemperatureScale)
+      : this.tempUnits;
     const newTemp = tempMapper.mapHomeKitTempToAlexa(value, units);
     return pipe(
       this.platform.alexaApi.setDeviceStateGraphQl(
@@ -682,7 +649,7 @@ export default class ThermostatAccessory extends BaseAccessory {
       throw this.invalidValueError;
     }
 
-    const units = coolTemp.scale.toUpperCase() as TemperatureScale;
+    const units = this.tempUnits;
     return {
       units,
       coolTemp,
