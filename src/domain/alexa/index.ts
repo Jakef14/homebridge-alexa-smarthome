@@ -13,6 +13,7 @@ export const SupportedDeviceTypes = [
   'VACUUM_CLEANER',
   'GAME_CONSOLE',
   'AIR_FRESHENER',
+  'APPLICATION',
 ];
 
 export type AmazonDomain =
