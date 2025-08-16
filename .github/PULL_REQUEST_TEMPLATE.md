@@ -25,4 +25,4 @@ Fixes # (issue)
 - [ ] My changes generate no new warnings
 - [ ] New and existing unit tests pass locally with my changes
 
-<!-- Before you submit this PR, please make sure to read our [Contributing Guidelines](https://github.com/joeyhage/homebridge-alexa-smarthome/blob/main/CONTRIBUTING.md). -->
+<!-- Before you submit this PR, please make sure to read our [Contributing Guidelines](https://github.com/jakef14/homebridge-alexa-smarthome/blob/main/CONTRIBUTING.md). -->

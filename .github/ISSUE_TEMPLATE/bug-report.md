@@ -3,10 +3,10 @@ name: Bug Report
 about: Create a report to help us improve
 title: ''
 labels: bug
-assignees: joeyhage
+assignees: jakef14
 ---
 
-<!-- Please review the common issues (https://github.com/joeyhage/homebridge-alexa-smarthome#common-issues) section of the documentation before submitting a request -->
+<!-- Please review the common issues (https://github.com/jakef14/homebridge-alexa-smarthome#common-issues) section of the documentation before submitting a request -->
 
 <!-- You must use the issue template below when submitting a bug -->
 

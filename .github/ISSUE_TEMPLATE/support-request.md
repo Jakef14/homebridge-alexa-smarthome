@@ -3,10 +3,10 @@ name: Support Request
 about: Need help?
 title: ''
 labels: question
-assignees: joeyhage
+assignees: jakef14
 ---
 
-<!-- Please review the common issues (https://github.com/joeyhage/homebridge-alexa-smarthome#common-issues) section of the documentation before submitting a request -->
+<!-- Please review the common issues (https://github.com/jakef14/homebridge-alexa-smarthome#common-issues) section of the documentation before submitting a request -->
 
 <!-- You must use the issue template below when submitting a support request -->
 

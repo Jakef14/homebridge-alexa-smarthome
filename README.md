@@ -3,10 +3,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/joeyhage/homebridge-alexa-smarthome/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/joeyhage/homebridge-alexa-smarthome?cacheSeconds=3600&logo=github"></a>
-  <a href="https://github.com/joeyhage/homebridge-alexa-smarthome/actions/workflows/build.yml?query=branch%3Amain">
-    <img alt="Build, lint, and test" src="https://img.shields.io/github/actions/workflow/status/joeyhage/homebridge-alexa-smarthome/build.yml?cacheSeconds=3600&logo=github"></a>
+  <a href="https://github.com/jakef14/homebridge-alexa-smarthome/blob/main/LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/jakef14/homebridge-alexa-smarthome?cacheSeconds=3600&logo=github"></a>
+  <a href="https://github.com/jakef14/homebridge-alexa-smarthome/actions/workflows/build.yml?query=branch%3Amain">
+    <img alt="Build, lint, and test" src="https://img.shields.io/github/actions/workflow/status/jakef14/homebridge-alexa-smarthome/build.yml?cacheSeconds=3600&logo=github"></a>
 </p>
 <p align="center">
   <a href="https://www.npmjs.com/package/homebridge-alexa-smarthome">
@@ -135,7 +135,7 @@ The first time this plugin starts, you will need to authenticate using your Amaz
 
 Please visit the [Canny feedback board](https://homebridge-alexa-smarthome.canny.io/feedback) first to see if your issue or request is currently being worked on. You can also suggest new features and vote on features requested by others.
 
-If you run into issues or you need help please use the [issues template](https://github.com/joeyhage/homebridge-alexa-smarthome/issues/new/choose). Fill all the relevant sections and submit your issue. It is important that you use the templates because I will automatically be assigned to your issue and I will receive an email. If you use the blank template without assigning me, I will most likely miss the Github notification.
+If you run into issues or you need help please use the [issues template](https://github.com/jakef14/homebridge-alexa-smarthome/issues/new/choose). Fill all the relevant sections and submit your issue. It is important that you use the templates because I will automatically be assigned to your issue and I will receive an email. If you use the blank template without assigning me, I will most likely miss the Github notification.
 
 ## Contributing
 
