@@ -85,8 +85,14 @@ export default class ThermostatAccessory extends BaseAccessory {
     } else {
       // If it exists due to prior cache, remove it safely
       try {
-        if (this.service.testCharacteristic(this.Characteristic.CoolingThresholdTemperature)) {
-          const ch = this.service.getCharacteristic(this.Characteristic.CoolingThresholdTemperature);
+        if (
+          this.service.testCharacteristic(
+            this.Characteristic.CoolingThresholdTemperature,
+          )
+        ) {
+          const ch = this.service.getCharacteristic(
+            this.Characteristic.CoolingThresholdTemperature,
+          );
           // @ts-ignore homebridge types allow this at runtime
           this.service.removeCharacteristic(ch);
         }
@@ -101,8 +107,14 @@ export default class ThermostatAccessory extends BaseAccessory {
     } else {
       // If it exists due to prior cache, remove it safely
       try {
-        if (this.service.testCharacteristic(this.Characteristic.HeatingThresholdTemperature)) {
-          const ch = this.service.getCharacteristic(this.Characteristic.HeatingThresholdTemperature);
+        if (
+          this.service.testCharacteristic(
+            this.Characteristic.HeatingThresholdTemperature,
+          )
+        ) {
+          const ch = this.service.getCharacteristic(
+            this.Characteristic.HeatingThresholdTemperature,
+          );
           // @ts-ignore
           this.service.removeCharacteristic(ch);
         }
@@ -247,7 +259,10 @@ export default class ThermostatAccessory extends BaseAccessory {
     // Guard: block HEAT if the device is AC-only
     const C = this.Characteristic.TargetHeatingCoolingState;
     if (!this.supportsHeat && value === C.HEAT) {
-      this.logWithContext('debug', 'Ignoring HEAT: device is AC-only (no heating support)');
+      this.logWithContext(
+        'debug',
+        'Ignoring HEAT: device is AC-only (no heating support)',
+      );
       return;
     }
 
@@ -401,9 +416,11 @@ export default class ThermostatAccessory extends BaseAccessory {
     if (typeof value !== 'number') {
       throw this.invalidValueError;
     }
-    const units = (maybeTemp.value.scale.toUpperCase
-      ? maybeTemp.value.scale.toUpperCase()
-      : String(maybeTemp.value.scale).toUpperCase()) as TemperatureScale;
+    const units = (
+      maybeTemp.value.scale.toUpperCase
+        ? maybeTemp.value.scale.toUpperCase()
+        : String(maybeTemp.value.scale).toUpperCase()
+    ) as TemperatureScale;
     const newTemp = tempMapper.mapHomeKitTempToAlexa(value, units);
     return pipe(
       this.platform.alexaApi.setDeviceStateGraphQl(
@@ -720,9 +737,11 @@ export default class ThermostatAccessory extends BaseAccessory {
       throw this.invalidValueError;
     }
 
-    const units = (coolTemp.scale.toUpperCase
-      ? coolTemp.scale.toUpperCase()
-      : String(coolTemp.scale).toUpperCase()) as TemperatureScale;
+    const units = (
+      coolTemp.scale.toUpperCase
+        ? coolTemp.scale.toUpperCase()
+        : String(coolTemp.scale).toUpperCase()
+    ) as TemperatureScale;
     return {
       units,
       coolTemp,
@@ -733,21 +752,34 @@ export default class ThermostatAccessory extends BaseAccessory {
   /** NEW: infer whether the device should be treated as an air conditioner */
   private inferIsAirConditioner(): boolean {
     const name = String(this.device?.displayName ?? '').toLowerCase();
-    const hasUpper = O.isSome(this.getCacheValue('thermostat', 'upperSetpoint'));
-    const hasLower = O.isSome(this.getCacheValue('thermostat', 'lowerSetpoint'));
+    const hasUpper = O.isSome(
+      this.getCacheValue('thermostat', 'upperSetpoint'),
+    );
+    const hasLower = O.isSome(
+      this.getCacheValue('thermostat', 'lowerSetpoint'),
+    );
     if (hasUpper && !hasLower) return true;
-    if (name.includes('air conditioner') || name.includes('a/c') || name.includes(' ac')) return true;
+    if (
+      name.includes('air conditioner') ||
+      name.includes('a/c') ||
+      name.includes(' ac')
+    )
+      return true;
     return false;
   }
 
   /** NEW: detect which modes (heat/cool) are supported */
   private detectSupportedModes(): void {
-    const hasUpper = O.isSome(this.getCacheValue('thermostat', 'upperSetpoint')); // COOL present
-    const hasLower = O.isSome(this.getCacheValue('thermostat', 'lowerSetpoint')); // HEAT present
+    const hasUpper = O.isSome(
+      this.getCacheValue('thermostat', 'upperSetpoint'),
+    ); // COOL present
+    const hasLower = O.isSome(
+      this.getCacheValue('thermostat', 'lowerSetpoint'),
+    ); // HEAT present
 
     // Defaults if we haven't cached anything yet:
-    this.supportsCool = hasUpper || true;   // assume cooling is available (safe for mini-splits)
-    this.supportsHeat = hasLower || false;  // default to no-heat until proven otherwise
+    this.supportsCool = hasUpper || true; // assume cooling is available (safe for mini-splits)
+    this.supportsHeat = hasLower || false; // default to no-heat until proven otherwise
 
     // If name clearly indicates AC and we didn’t see heat, force AC-only
     if (this.inferIsAirConditioner() && !hasLower) {
@@ -757,21 +789,20 @@ export default class ThermostatAccessory extends BaseAccessory {
 
     this.logWithContext(
       'debug',
-      `Mode support detected: supportsCool=${this.supportsCool}, supportsHeat=${this.supportsHeat}, isAC=${this.isAirConditioner}`
+      `Mode support detected: supportsCool=${this.supportsCool}, supportsHeat=${this.supportsHeat}, isAC=${this.isAirConditioner}`,
     );
   }
 
   /** NEW: restrict HomeKit TargetHeatingCoolingState to supported values */
   private constrainTargetStateProps(): void {
     const C = this.Characteristic.TargetHeatingCoolingState;
-    const valid = this.supportsHeat && this.supportsCool
-      ? [C.OFF, C.HEAT, C.COOL, C.AUTO]
-      : this.supportsCool
+    const valid =
+      this.supportsHeat && this.supportsCool
+        ? [C.OFF, C.HEAT, C.COOL, C.AUTO]
+        : this.supportsCool
         ? [C.OFF, C.COOL, C.AUTO]
         : [C.OFF, C.HEAT, C.AUTO];
 
-    this.service
-      .getCharacteristic(C)
-      .setProps({ validValues: valid });
+    this.service.getCharacteristic(C).setProps({ validValues: valid });
   }
 }
