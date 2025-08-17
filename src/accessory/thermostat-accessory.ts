@@ -45,8 +45,8 @@ export default class ThermostatAccessory extends BaseAccessory {
       .onGet(this.handleCurrentStateGet.bind(this));
 
     // Reasonable HomeKit ranges (in Celsius); adjust if your hardware needs tighter bounds
-    const MIN_C = 10; // 50°F
-    const MAX_C = 38; // 100°F
+    const MIN_C = 17; // 50°F
+    const MAX_C = 25; // 100°F
     const STEP = 0.5;
 
     // Target temperature (single slider used in HEAT/COOL modes)
