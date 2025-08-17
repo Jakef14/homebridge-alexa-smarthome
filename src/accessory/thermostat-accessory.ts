@@ -100,20 +100,20 @@ export default class ThermostatAccessory extends BaseAccessory {
       .onGet(this.handleTargetStateGet.bind(this))
       .onSet(this.handleTargetStateSet.bind(this));
 
-    // this.service
-    //   .getCharacteristic(this.Characteristic.TargetTemperature)
-    //   .onGet(this.handleTargetTempGet.bind(this))
-    //   .onSet(this.handleTargetTempSet.bind(this));
+    this.service
+      .getCharacteristic(this.Characteristic.TargetTemperature)
+      .onGet(this.handleTargetTempGet.bind(this))
+      .onSet(this.handleTargetTempSet.bind(this));
 
-    // this.service
-    //   .getCharacteristic(this.Characteristic.CoolingThresholdTemperature)
-    //   .onGet(this.handleCoolTempGet.bind(this))
-    //   .onSet(this.handleCoolTempSet.bind(this));
+    this.service
+      .getCharacteristic(this.Characteristic.CoolingThresholdTemperature)
+      .onGet(this.handleCoolTempGet.bind(this))
+      .onSet(this.handleCoolTempSet.bind(this));
 
-    // this.service
-    //   .getCharacteristic(this.Characteristic.HeatingThresholdTemperature)
-    //   .onGet(this.handleHeatTempGet.bind(this))
-    //   .onSet(this.handleHeatTempSet.bind(this));
+    this.service
+      .getCharacteristic(this.Characteristic.HeatingThresholdTemperature)
+      .onGet(this.handleHeatTempGet.bind(this))
+      .onSet(this.handleHeatTempSet.bind(this));
 
     this.seedThresholdsIfMissing();
 
