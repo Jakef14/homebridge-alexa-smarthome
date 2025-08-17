@@ -44,6 +44,38 @@ export default class ThermostatAccessory extends BaseAccessory {
       .getCharacteristic(this.Characteristic.CurrentHeatingCoolingState)
       .onGet(this.handleCurrentStateGet.bind(this));
 
+      // Reasonable HomeKit ranges (in Celsius); adjust if your hardware needs tighter bounds
+    const MIN_C = 10;   // 50°F
+    const MAX_C = 38;   // 100°F
+    const STEP  = 0.5;
+
+    // Target temperature (single slider used in HEAT/COOL modes)
+    this.service
+      .getCharacteristic(this.Characteristic.TargetTemperature)
+      .setProps({
+        minValue: MIN_C,
+        maxValue: MAX_C,
+        minStep: STEP,
+      });
+
+    // Cooling threshold (upper bound when in AUTO)
+    this.service
+      .getCharacteristic(this.Characteristic.CoolingThresholdTemperature)
+      .setProps({
+        minValue: MIN_C,
+        maxValue: MAX_C,
+        minStep: STEP,
+      });
+
+    // Heating threshold (lower bound when in AUTO)
+    this.service
+      .getCharacteristic(this.Characteristic.HeatingThresholdTemperature)
+      .setProps({
+        minValue: MIN_C,
+        maxValue: MAX_C,
+        minStep: STEP,
+      });
+
     this.service
       .getCharacteristic(this.Characteristic.CurrentTemperature)
       .onGet(this.handleCurrentTempGet.bind(this));
@@ -68,20 +100,22 @@ export default class ThermostatAccessory extends BaseAccessory {
       .onGet(this.handleTargetStateGet.bind(this))
       .onSet(this.handleTargetStateSet.bind(this));
 
-    this.service
-      .getCharacteristic(this.Characteristic.TargetTemperature)
-      .onGet(this.handleTargetTempGet.bind(this))
-      .onSet(this.handleTargetTempSet.bind(this));
+    // this.service
+    //   .getCharacteristic(this.Characteristic.TargetTemperature)
+    //   .onGet(this.handleTargetTempGet.bind(this))
+    //   .onSet(this.handleTargetTempSet.bind(this));
 
-    this.service
-      .getCharacteristic(this.Characteristic.CoolingThresholdTemperature)
-      .onGet(this.handleCoolTempGet.bind(this))
-      .onSet(this.handleCoolTempSet.bind(this));
+    // this.service
+    //   .getCharacteristic(this.Characteristic.CoolingThresholdTemperature)
+    //   .onGet(this.handleCoolTempGet.bind(this))
+    //   .onSet(this.handleCoolTempSet.bind(this));
 
-    this.service
-      .getCharacteristic(this.Characteristic.HeatingThresholdTemperature)
-      .onGet(this.handleHeatTempGet.bind(this))
-      .onSet(this.handleHeatTempSet.bind(this));
+    // this.service
+    //   .getCharacteristic(this.Characteristic.HeatingThresholdTemperature)
+    //   .onGet(this.handleHeatTempGet.bind(this))
+    //   .onSet(this.handleHeatTempSet.bind(this));
+
+    this.seedThresholdsIfMissing();
 
     pipe(
       this.rangeFeatures,
@@ -198,6 +232,46 @@ export default class ThermostatAccessory extends BaseAccessory {
       }, identity),
     )();
   }
+
+  private async seedThresholdsIfMissing() {
+  try {
+    const mode = await this.handleTargetStateGet();
+    const AUTO = this.Characteristic.TargetHeatingCoolingState.AUTO;
+
+    if (mode !== AUTO) return;
+
+    // Try to read what we have
+    let haveLower = true, haveUpper = true;
+    try { await this.handleHeatTempGet(); } catch { haveLower = false; }
+    try { await this.handleCoolTempGet(); } catch { haveUpper = false; }
+
+    if (haveLower && haveUpper) return;
+
+    // Derive a sensible default band if missing: center around target or current
+    const cTarget = await this.handleTargetTempGet().catch(() => NaN);
+    const cCurr   = await this.handleCurrentTempGet().catch(() => NaN);
+    const center  = Number.isFinite(cTarget) ? cTarget :
+                    Number.isFinite(cCurr)   ? cCurr   : 22; // 22°C fallback
+
+    const halfBand = 1.0; // 2°C total band; tweak as you like
+    const lower = Math.max(10, Math.min(38, center - halfBand));
+    const upper = Math.max(10, Math.min(38, center + halfBand));
+
+    // Update both thresholds together so Alexa state is consistent
+    await this.handleHeatTempSet(lower);
+    await this.handleCoolTempSet(upper);
+
+    // Also push to HomeKit cache so UI shows immediately
+    this.service.updateCharacteristic(
+      this.Characteristic.HeatingThresholdTemperature, lower,
+    );
+    this.service.updateCharacteristic(
+      this.Characteristic.CoolingThresholdTemperature, upper,
+    );
+  } catch (e) {
+    this.logWithContext('debug', 'seedThresholdsIfMissing skipped', e);
+  }
+}
 
   async handleTargetStateSet(value: CharacteristicValue): Promise<void> {
     this.logWithContext('debug', `Triggered set target state: ${value}`);
