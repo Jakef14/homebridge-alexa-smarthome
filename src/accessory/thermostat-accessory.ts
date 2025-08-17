@@ -94,7 +94,7 @@ export default class ThermostatAccessory extends BaseAccessory {
           this.Characteristic.TargetHeatingCoolingState.OFF,
           this.Characteristic.TargetHeatingCoolingState.HEAT,
           this.Characteristic.TargetHeatingCoolingState.COOL,
-          this.Characteristic.TargetHeatingCoolingState.AUTO,
+          // this.Characteristic.TargetHeatingCoolingState.AUTO,
         ],
       })
       .onGet(this.handleTargetStateGet.bind(this))
